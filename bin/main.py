@@ -6,7 +6,9 @@
 # Imports
 import os
 import sys
+import ipdb
 import tqdm
+import uniqid
 import numpy as np
 from PIL import Image
 import tensorflow as tf
@@ -27,12 +29,17 @@ class DeepLabModel(object):
         self.FROZEN_GRAPH_NAME = 'frozen_inference_graph'
         # Start load process
         self.graph = tf.Graph()
-        graph_def = tf.GraphDef.FromString(open(tarball_path + "/frozen_inference_graph.pb", "rb").read())
+        pretrained_model = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            tarball_path,
+            'frozen_inference_graph.pb'
+        )
+        graph_def = tf.compat.v1.GraphDef.FromString(open(pretrained_model, "rb").read())
         if graph_def is None:
             raise RuntimeError('Cannot find inference graph in tar archive.')
         with self.graph.as_default():
             tf.import_graph_def(graph_def, name='')
-        self.sess = tf.Session(graph=self.graph)
+        self.sess = tf.compat.v1.Session(graph=self.graph)
 
     def run(self, image):
         """Image processing."""
@@ -82,7 +89,7 @@ def draw_segment(base_img, mat_img, filename_d):
     # Remove file extension
     filename_d = os.path.splitext(filename_d)[0]
     # Save image
-    img.save(output_dir + '/' + filename_d + '.png')
+    img.save(filename_d + '.png')
 
 
 def run_visualization(filepath, filename_r):
@@ -99,22 +106,20 @@ def run_visualization(filepath, filename_r):
 
 if __name__ == "__main__":
     # Parse arguments
-    input_dir = sys.argv[1]
-    output_dir = sys.argv[2]
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
 
     # Check parameters
-    if input_dir is None or output_dir is None:
-        print("Bad parameters. Please specify input dir path and output dir path")
+    if input_file is None or output_file is None:
+        print("Bad parameters. Please specify input file and output file")
         exit(1)
     # Init model
-    modelType = "mobile_net_model"
-    if len(sys.argv) > 3 and sys.argv[3] == "1":
-        modelType = "xception_model"
+    modelType = "xception_model"
     MODEL = DeepLabModel(modelType)
 
     # Start process
-    files = os.listdir(input_dir)
-    for file in tqdm.tqdm(files, ascii=True, desc='Remove Background', unit='|image|'):
-        filename = file
-        file = input_dir + '/' + file
-        run_visualization(file, filename)
+    if (os.path.exists(input_file) and os.path.isfile(input_file)):
+        run_visualization(input_file, output_file)
+        print('OK')
+    else:
+        print('ERROR')
